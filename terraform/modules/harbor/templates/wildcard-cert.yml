@@ -1,0 +1,20 @@
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: shared-cert
+  namespace: harbor
+spec:
+  acme:
+    config:
+    - dns01:
+        provider: clouddns
+      domains:
+      - '${harbor_domain}'
+      - '${notary_domain}'
+  dnsNames:
+  - '${harbor_domain}'
+  - '${notary_domain}'
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt-prod
+  secretName: harbor-tls-secret

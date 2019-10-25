@@ -1,0 +1,18 @@
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: shared-cert
+  namespace: default
+spec:
+  acme:
+    config:
+    - dns01:
+        provider: clouddns
+      domains:
+      - '*.${dns_suffix}'
+  dnsNames:
+  - '*.${dns_suffix}'
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt-prod
+  secretName: wildcard-tls-secret

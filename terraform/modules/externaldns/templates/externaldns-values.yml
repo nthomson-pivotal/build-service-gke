@@ -1,0 +1,10 @@
+provider: google
+google:
+  project: ${project_id}
+  serviceAccountSecret: "${service_account_secret}"
+rbac:
+  create: true
+policy: upsert-only
+# TODO: Make this work
+#domainFilters: 
+#- ${dns_suffix}
