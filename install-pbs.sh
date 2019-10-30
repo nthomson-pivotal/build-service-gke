@@ -71,25 +71,6 @@ fi
 
 touch $DATA_DIR/fake-ca.crt
 
-if [ ! -f $DATA_DIR/credentials.yml ]; then
-  (cd $DATA_DIR && $DIR/scripts/get-kubeconfig.sh)
-
-  cat << EOF > $DATA_DIR/credentials.yml
-name: build-service-credentials
-credentials:
-  - name: kube_config
-    source:
-      path: "$DATA_DIR/build/kubeconfig"
-    destination:
-      path: "/root/.kube/config"
-  - name: ca_cert
-    source:
-      path: "$DATA_DIR/fake-ca.crt"
-    destination:
-      path: "/cnab/app/cert/ca.crt"
-EOF
-fi
-
 cat << EOF > $DATA_DIR/pbs-test-team.yml
 name: test-team
 registries:
@@ -112,20 +93,52 @@ EOF
 
 kubectl get secret wildcard-tls-secret -n default -o json | jq -r 'del(.data["ca.crt"]) | del(.metadata) | .metadata.namespace = "default" | .metadata.name = "build-service-certificate" | .type = "Opaque"' | kubectl apply -f -
 
+if [ ! -f $DATA_DIR/credentials.yml ]; then
+  (cd $DATA_DIR && $DIR/scripts/get-kubeconfig.sh)
+
+  kubectl get secret wildcard-tls-secret -n default -o json | jq -r '.data["tls.crt"]' | base64 -D > $DATA_DIR/tls.crt
+  kubectl get secret wildcard-tls-secret -n default -o json | jq -r '.data["tls.key"]' | base64 -D > $DATA_DIR/tls.key
+
+  cat << EOF > $DATA_DIR/credentials.yml
+name: build-service-credentials
+credentials:
+  - name: kube_config
+    source:
+      path: "$DATA_DIR/build/kubeconfig"
+    destination:
+      path: "/root/.kube/config"
+  - name: ca_cert
+    source:
+      path: "$DATA_DIR/fake-ca.crt"
+    destination:
+      path: "/cnab/app/cert/ca.crt"
+  - name: tls_cert
+    source:
+      path: "$DATA_DIR/tls.crt"
+    destination:
+      path: "/cnab/app/cert/tls.crt"
+  - name: tls_key
+    source:
+      path: "$DATA_DIR/tls.key"
+    destination:
+      path: "/cnab/app/cert/tls.key"
+EOF
+fi
+
 uaa_url=$(terraform output -state=$DIR/terraform/terraform.tfstate uaa_url)
 
 pbs_domain=$(terraform output -state=$DIR/terraform/terraform.tfstate pbs_domain)
 
 echo "Running duffle install..."
 
-duffle install build-service-qs -c $DATA_DIR/credentials.yml  \
+$DUFFLE install build-service-qs -c $DATA_DIR/credentials.yml \
     --set domain=$pbs_domain \
     --set kubernetes_env=k8s \
     --set docker_registry=index.docker.io \
     --set registry_username=$dockerhub_username \
     --set registry_password=$dockerhub_password \
     --set uaa_url=$uaa_url \
-    -f $PBS_IMPORT/build-service-$PBS_VERSION/bundle.json \
+    -f $PBS_ARCHIVE \
     -m $DATA_DIR/relocated.json
 
 sleep 30
