@@ -2,7 +2,7 @@
 
 set -e
 
-PBS_VERSION=0.0.3
+PBS_VERSION=0.0.2
 
 pivnet_token=$1
 dockerhub_username=$2
